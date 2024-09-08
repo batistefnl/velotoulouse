@@ -1,0 +1,39 @@
+[project]
+name = "velo"
+version = "0.1.0"
+description = "Disponibilité des VélôToulouse : analyse, prédiction et effet de la pluie"
+authors = [
+    { name = "batistefnl" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.0.0",
+    "matplotlib>=3.9.2",
+    "numpy>=2.1.1",
+    "pandas>=2.2.2",
+    "pyarrow>=17.0.0",
+    "requests>=2.32.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.2",
+    "ruff>=0.6.4",
+]
+
+[tool.uv]
+exclude-newer = "2024-09-08T00:00:00Z"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B905"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

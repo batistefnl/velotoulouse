@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+# copiés depuis le collecteur, pas besoin de les versionner 2 fois
+data/raw/collected_*.parquet
+
+# repo à part
+velotoulouse-collecteur/
