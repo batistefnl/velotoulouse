@@ -1,13 +1,15 @@
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
 
 from velo import context
 from velo.config import FIGURES, HOME, MIN_BIKES, SCHOOL, STATIONS
-from velo.data import load_grid
+from velo.data import load_grid, load_stations
 
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 BLUES = LinearSegmentedColormap.from_list("blues", ["#f4f8fd", "#9ec5f4", "#3987e5", "#1c5cab", "#0d366b"])
+DIVERGING = LinearSegmentedColormap.from_list("div", ["#1c5cab", "#86b6ef", "#f0efec", "#ef9a8f", "#b8302f"])
 DAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]
 
 plt.rcParams.update({
@@ -97,11 +99,43 @@ def mean_trap():
     save(fig, "moyenne")
 
 
+def morning_map():
+    g = workdays(load_grid(columns=["station", "ts", "bikes", "open"]).dropna())
+    hm = g["ts"].dt.strftime("%H:%M")
+    start = g[hm == "07:00"].groupby("station")["bikes"].mean()
+    end = g[hm == "09:30"].groupby("station")["bikes"].mean()
+    st = load_stations().set_index("station").join((end - start).rename("delta"), how="inner").dropna()
+    lim = np.nanpercentile(np.abs(st["delta"]), 98)
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    sc = ax.scatter(st["lon"], st["lat"], c=st["delta"], s=14 + 2 * st["capacity"], cmap=DIVERGING,
+                    norm=TwoSlopeNorm(0, -lim, lim), edgecolors="white", linewidths=0.4)
+    for num in STATIONS:
+        ax.scatter(st.loc[num, "lon"], st.loc[num, "lat"], s=60, facecolors="none", edgecolors=INK, linewidths=1)
+    # labels à côté des stations entourées sinon ils tombent sur les voisines. décalages réglés à l'oeil
+    home, school = st.loc[list(HOME)], st.loc[list(SCHOOL)]
+    ax.annotate("maison", (home["lon"].min() - 0.004, home["lat"].mean()),
+                ha="right", va="center", fontsize=9, color=INK, weight="bold")
+    ax.annotate("SUPAERO", (school["lon"].max() + 0.004, school["lat"].max() + 0.003),
+                ha="left", va="bottom", fontsize=9, color=INK, weight="bold")
+    ax.set_aspect(1 / np.cos(np.radians(43.6)))  # sinon la carte est écrasée
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.grid(False)
+    for side in ax.spines.values():
+        side.set_visible(False)
+    cbar = fig.colorbar(sc, ax=ax, shrink=0.6, pad=0.01)
+    cbar.set_label("variation moyenne du nombre de vélos, 7h → 9h30")
+    cbar.outline.set_visible(False)
+    ax.set_title("La vague du matin (jours ouvrés)")
+    save(fig, "carte_matin")
+
+
 def all_figures():
     g = load_grid(list(STATIONS), columns=["station", "ts", "bikes", "open"]).dropna()
     commute(g)
     heatmaps(g)
     mean_trap()
+    morning_map()
 
 
 if __name__ == "__main__":
