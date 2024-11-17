@@ -11,9 +11,10 @@ MODELS = ROOT / "models"
 
 TZ = "Europe/Paris"
 
-# premier relevé le 1er sept à 2h30
+# sept-nov 2024 (premier relevé le 1er sept à 2h30). train sept+oct, test nov
 START = pd.Timestamp("2024-09-01", tz=TZ)
-END = pd.Timestamp("2024-10-01", tz=TZ)
+END = pd.Timestamp("2024-12-01", tz=TZ)
+TEST_START = pd.Timestamp("2024-11-01", tz=TZ)
 
 MIN_BIKES = 2  # 1 vélo affiché c'est souvent un vélo cassé
 
