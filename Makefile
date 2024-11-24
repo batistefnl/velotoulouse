@@ -1,4 +1,4 @@
-.PHONY: all data model figures test lint
+.PHONY: all data model figures rain test lint
 
 all: data model figures
 
@@ -10,6 +10,9 @@ model:  # ~4 min
 
 figures:
 	uv run python -m velo.figures
+
+rain:
+	uv run python -m velo.causal
 
 test:
 	uv run pytest -q
