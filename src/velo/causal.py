@@ -77,6 +77,17 @@ def fit(df, treatment, outcome="log_activity"):
     return out
 
 
+def event_study(df, window=3):
+    # effet d'une heure de pluie il y a k heures. k < 0 = pluie à venir, ça doit faire ~0 (placebo)
+    wet = (context.weather()["rain"] >= WET).astype(float)  # toutes les heures, nuit comprise
+    cols = {k: wet.reindex(df["hour"] - pd.Timedelta(hours=k)).to_numpy()
+            for k in range(-window, window + 1)}
+    shifted = pd.DataFrame({f"wet_{k:+d}": v for k, v in cols.items()}, index=df.index)
+    res = fit(pd.concat([df, shifted], axis=1), list(shifted.columns) + ["drizzle"]).iloc[:-1]
+    res.index = list(cols)
+    return res
+
+
 def as_percent(table):
     return 100 * np.expm1(table[["coef", "low", "high"]])
 
@@ -89,4 +100,7 @@ if __name__ == "__main__":
 
     df2 = df.assign(moderate=((df["rain"] >= WET) & (df["rain"] <= 1)).astype(float),
                     heavy=(df["rain"] > 1).astype(float))
-    print(as_percent(fit(df2, ["drizzle", "moderate", "heavy"])).round(1).to_string())
+    print(as_percent(fit(df2, ["drizzle", "moderate", "heavy"])).round(1).to_string(), "\n")
+
+    print("Event study (k = hours since the wet hour):")
+    print(as_percent(event_study(df)).round(1).to_string())
