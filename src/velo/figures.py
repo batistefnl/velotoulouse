@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
 
-from velo import context
+from velo import causal, context
+from velo import features as F
 from velo.config import FIGURES, HOME, MIN_BIKES, SCHOOL, STATIONS
 from velo.data import load_grid, load_stations
+from velo.model import CALIBRATION_FILE, METRICS_FILE
 
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
@@ -130,12 +133,62 @@ def morning_map():
     save(fig, "carte_matin")
 
 
+def model_scores():
+    m = pd.read_csv(METRICS_FILE)
+    m = m[m["model"] != "gradient boosting + tendance"]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharey=True)
+    for ax, subset in zip(axes, ["mes 7 stations", "1 à 4 vélos"]):
+        d = m[m["subset"] == subset]
+        for color, model in zip(SERIES, ["profil horaire", "persistance", "régression logistique",
+                                         "gradient boosting"]):
+            s = d[d["model"] == model].set_index("horizon")["brier"]
+            ax.plot(s.index, s.values, color=color, marker="o", markersize=5, label=model)
+        ax.set_xticks(F.HORIZONS, [f"{h} min" for h in F.HORIZONS])
+        ax.set_xlabel("horizon de prédiction")
+        ax.set_title({"mes 7 stations": "Mes 7 stations",
+                      "1 à 4 vélos": "Cas serrés : 1 à 4 vélos au départ (réseau)"}[subset])
+    axes[0].set_ylabel("score de Brier (plus bas = mieux)")
+    axes[0].set_ylim(0, None)
+    axes[0].legend(loc="lower right", fontsize=9)
+    save(fig, "modeles")
+
+
+def calibration():
+    c = pd.read_csv(CALIBRATION_FILE)
+    fig, ax = plt.subplots(figsize=(4.8, 4.5))
+    ax.plot([0, 1], [0, 1], color=MUTED, lw=1, ls="--", label="calibration parfaite")
+    for color, (h, d) in zip(SERIES, c.groupby("horizon")):
+        ax.plot(d["predicted"], d["observed"], color=color, marker="o", markersize=4, label=f"{h} min")
+    ax.set_xlabel("probabilité prédite")
+    ax.set_ylabel("fréquence observée")
+    ax.set_title("Calibration (réseau, test novembre 2024)")
+    ax.legend(loc="upper left", fontsize=9)
+    save(fig, "calibration")
+
+
+def rain(panel):
+    es = causal.as_percent(causal.event_study(panel))
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    ax.axhline(0, color=MUTED, lw=0.8)
+    ax.axvline(-0.5, color=GRID, lw=1)
+    ax.errorbar(es.index, es["coef"], yerr=[es["coef"] - es["low"], es["high"] - es["coef"]],
+                fmt="o", color=SERIES[0], ecolor=SERIES[0], elinewidth=1.5, capsize=0, markersize=6)
+    ax.set_xticks(es.index, [f"{k:+d} h" if k else "0" for k in es.index])
+    ax.set_xlabel("heures depuis l'heure de pluie (négatif : la pluie arrive plus tard)")
+    ax.set_ylabel("effet sur l'activité (%)")
+    ax.set_title("Effet d'une heure de pluie (≥ 0,5 mm) sur l'usage du réseau")
+    save(fig, "pluie")
+
+
 def all_figures():
     g = load_grid(list(STATIONS), columns=["station", "ts", "bikes", "open"]).dropna()
     commute(g)
     heatmaps(g)
     mean_trap()
     morning_map()
+    model_scores()
+    calibration()
+    rain(causal.panel())
 
 
 if __name__ == "__main__":

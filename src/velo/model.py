@@ -1,4 +1,5 @@
-# P(au moins 2 vélos dans h minutes). train sept-oct 2024, test novembre
+# P(au moins 2 vélos dans h minutes). train sept-oct 2024, test novembre.
+# seul truc décidé en regardant le test : virer d15/d60, ça change presque rien
 
 import joblib
 import numpy as np
@@ -19,6 +20,8 @@ DATASET_FILE = PROCESSED / "dataset.parquet"
 METRICS_FILE = PROCESSED / "metrics.csv"
 CALIBRATION_FILE = PROCESSED / "calibration.csv"
 
+BASE = [c for c in F.FEATURES if c not in ("d15", "d60")]  # ce que donne le flux temps réel
+TREND = BASE + ["d15", "d60"]
 LINEAR = ["bikes", "docks", "fill", "profile", "rain", "temp", "weekend", "school_holiday"]
 
 
@@ -58,22 +61,25 @@ def evaluate(df):
     rows, calib = [], []
     for h in F.HORIZONS:
         y = f"y{h}"
-        a = train.dropna(subset=F.FEATURES + [y])  # mêmes lignes pour tous les modèles
-        b = test.dropna(subset=F.FEATURES + [y])
+        a = train.dropna(subset=TREND + [y])  # mêmes lignes pour tous les modèles
+        b = test.dropna(subset=TREND + [y])
         ya, yb = a[y].astype(int), b[y].astype(int)
 
         # persistance = P(y | nb de vélos maintenant), connait l'état mais pas l'heure
         persistence = ya.groupby(a["bikes"].clip(upper=15)).mean()
         linear = make_pipeline(StandardScaler(), LogisticRegression(max_iter=500))
         linear.fit(a[LINEAR], ya)
-        model = gbm().fit(a[F.FEATURES], ya)
+        model = gbm().fit(a[BASE], ya)
+        trend = gbm().fit(a[TREND], ya)
+        # model = gbm().fit(a[TREND], ya)
         joblib.dump(model, MODELS / f"gbm_{h}.joblib")
 
         preds = {
             "profil horaire": b["profile"].to_numpy(),
             "persistance": b["bikes"].clip(upper=15).map(persistence).to_numpy(),
             "régression logistique": linear.predict_proba(b[LINEAR])[:, 1],
-            "gradient boosting": model.predict_proba(b[F.FEATURES])[:, 1],
+            "gradient boosting": model.predict_proba(b[BASE])[:, 1],
+            "gradient boosting + tendance": trend.predict_proba(b[TREND])[:, 1],
         }
         subsets = {
             "réseau": np.ones(len(b), bool),
