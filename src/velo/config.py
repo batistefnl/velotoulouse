@@ -18,7 +18,9 @@ TEST_START = pd.Timestamp("2024-11-01", tz=TZ)
 
 MIN_BIKES = 2  # 1 vélo affiché c'est souvent un vélo cassé
 
-# mon trajet
+# mon trajet. HOME_COORDS c'est à peu près le quartier, pas l'adresse
+HOME_COORDS = (43.566, 1.454)
+SCHOOL_COORDS = (43.5683, 1.4721)
 HOME = {358: "Salade Ponsan - Côteaux", 359: "Salade Ponsan - Sahuque",
         232: "Narbonne - Caubère", 233: "Narbonne - Sahuque"}
 SCHOOL = {225: "Belin - Onera", 224: "Belin - Supaero", 230: "UT3 - Champs Magnétiques"}

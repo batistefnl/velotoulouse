@@ -1,4 +1,4 @@
-.PHONY: all data model figures rain test lint
+.PHONY: all data model figures rain app test lint
 
 all: data model figures
 
@@ -13,6 +13,9 @@ figures:
 
 rain:
 	uv run python -m velo.causal
+
+app:
+	uv run streamlit run app/app.py
 
 test:
 	uv run pytest -q

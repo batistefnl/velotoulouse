@@ -5,6 +5,10 @@ __pycache__/
 .DS_Store
 # copiés depuis le collecteur, pas besoin de les versionner 2 fois
 data/raw/collected_*.parquet
+# l'app télécharge les calendriers de l'année en cours
+data/raw/jours_feries_*.json
+!data/raw/jours_feries_2024.json
+data/raw/calendrier_scolaire_toulouse_recent.json
 
 # repo à part
 velotoulouse-collecteur/

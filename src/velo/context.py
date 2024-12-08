@@ -40,8 +40,18 @@ def weather(start=START, end=END):
     return res.loc[start:end - pd.Timedelta("1s")]
 
 
-def school_holidays():
+def school_holidays(until=END):
+    def covers(df):
+        return pd.to_datetime(df["end_date"], utc=True).max() >= until
+
     df = pd.read_json(_get(SCHOOL_URL, RAW / "calendrier_scolaire_toulouse.json"))
+    if not covers(df):
+        # l'app tourne sur des dates actuelles, le calendrier de l'étude s'arrête trop tôt.
+        # on garde une copie récente à part pour ne pas toucher aux données de l'étude
+        recent = RAW / "calendrier_scolaire_toulouse_recent.json"
+        df = pd.read_json(_get(SCHOOL_URL, recent))
+        if not covers(df):
+            df = pd.read_json(_get(SCHOOL_URL, recent, refresh=True))
     df = df[df["population"].isin(["-", "Élèves"])]
     # minuit heure locale stocké en UTC. la fin = le matin de la rentrée
     start = pd.to_datetime(df["start_date"], utc=True).dt.tz_convert(TZ).dt.normalize()
@@ -60,10 +70,11 @@ def public_holidays(years=None):
 def day_flags(ts):
     day = ts.dt.normalize()
     school = pd.Series(False, index=ts.index)
-    for start, end in school_holidays():
+    for start, end in school_holidays(until=day.max()):
         school |= (day >= start) & (day < end)
     return pd.DataFrame({
         "weekend": ts.dt.dayofweek >= 5,
-        "public_holiday": day.isin(public_holidays()),
+        # années des dates elles-mêmes : 2024 pour l'entrainement, l'année en cours dans l'app
+        "public_holiday": day.isin(public_holidays(sorted(day.dt.year.unique()))),
         "school_holiday": school,
     }, index=ts.index)
