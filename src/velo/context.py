@@ -4,7 +4,12 @@ import requests
 from velo.config import END, RAW, START, TZ
 
 METEO_URL = "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/HOR/{}"
-METEO_FILE = "H_31_latest-2023-2024.csv.gz"
+# météo-france renomme le fichier "latest" chaque janvier, donc celui qui contient
+# l'automne 2024 change de nom en 2025. on prend le premier qu'on trouve
+METEO_FILES = [
+    "H_31_latest-2023-2024.csv.gz",
+    "H_31_latest-2024-2025.csv.gz",
+]
 BLAGNAC = 31069001
 
 SCHOOL_URL = (
@@ -23,10 +28,22 @@ def _get(url, path, refresh=False):
     return path
 
 
+def _meteo_file():
+    for name in METEO_FILES:
+        if (RAW / name).exists():
+            return RAW / name
+    for name in METEO_FILES:
+        try:
+            return _get(METEO_URL.format(name), RAW / name)
+        except requests.HTTPError as e:
+            if e.response is None or e.response.status_code != 404:
+                raise
+    raise FileNotFoundError(f"none of {METEO_FILES} at {METEO_URL.format('')}")
+
+
 def weather(start=START, end=END):
     """Pluie (mm) et température horaires à Blagnac, indexées par le début de l'heure en local."""
-    path = _get(METEO_URL.format(METEO_FILE), RAW / METEO_FILE)
-    df = pd.read_csv(path, sep=";", usecols=["NUM_POSTE", "AAAAMMJJHH", "RR1", "T"])
+    df = pd.read_csv(_meteo_file(), sep=";", usecols=["NUM_POSTE", "AAAAMMJJHH", "RR1", "T"])
     df = df[df["NUM_POSTE"] == BLAGNAC]
     # météo-france date l'heure par sa fin, en UTC
     ts = pd.to_datetime(df["AAAAMMJJHH"].astype(str), format="%Y%m%d%H", utc=True) - pd.Timedelta("1h")
